@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>H-R도 그리기 · 별의 분류</title>
+<style>
+  :root{
+    --bg:#070b18;
+    --bg2:#0d1426;
+    --panel:#121a31;
+    --panel2:#0f1729;
+    --line:#26324f;
+    --line-soft:#1b2540;
+    --ink:#e8edfb;
+    --ink-dim:#9aa7c8;
+    --ink-faint:#5f6c8f;
+    --amber:#ffcf6b;
+    --cyan:#6fe3d6;
+    --danger:#ff7a6b;
+    --grid:#1a2440;
+    --grid-strong:#243152;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1200px 700px at 78% -8%, #15233f 0%, transparent 60%),
+      radial-gradient(900px 600px at 8% 110%, #14122b 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    line-height:1.55;
+    min-height:100vh;
+    padding:22px clamp(12px,3vw,40px) 60px;
+  }
+  .mono{font-family:"SFMono-Regular",ui-monospace,"D2Coding","Consolas",monospace}
+
+  header.top{max-width:1280px;margin:0 auto 22px;}
+  .eyebrow{
+    font-size:12px;letter-spacing:.34em;text-transform:uppercase;
+    color:var(--cyan);font-weight:600;margin-bottom:8px;
+  }
+  h1{
+    font-size:clamp(26px,4.4vw,42px);margin:0;font-weight:800;letter-spacing:-.01em;
+    font-family:Georgia,"Times New Roman","Nanum Myeongjo",serif;
+  }
+  h1 small{display:block;font-family:inherit;font-weight:400;font-size:.42em;color:var(--ink-dim);letter-spacing:.02em;margin-top:6px;font-style:italic}
+  .lede{color:var(--ink-dim);max-width:62ch;margin:12px 0 0;font-size:15px}
+
+  .layout{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start}
+  @media (max-width:980px){ .layout{grid-template-columns:1fr} }
+
+  .card{
+    background:linear-gradient(180deg,var(--panel) 0%,var(--panel2) 100%);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px;
+  }
+  .card + .card{margin-top:16px}
+  .card h2{
+    font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim);
+    margin:0 0 14px;font-weight:700;display:flex;align-items:center;gap:8px
+  }
+  .card h2 .dot{width:7px;height:7px;border-radius:50%;background:var(--amber)}
+
+  /* segmented control */
+  .seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+  .seg button{
+    border:0;background:transparent;color:var(--ink-dim);font-weight:600;font-size:13px;
+    padding:7px 14px;border-radius:7px;cursor:pointer;transition:.15s;font-family:inherit;white-space:nowrap
+  }
+  .seg button.active{background:var(--cyan);color:#06221f}
+  .seg button:hover:not(.active){color:var(--ink)}
+
+  label.field{display:block;margin-bottom:12px}
+  label.field > span{display:block;font-size:12px;color:var(--ink-dim);margin-bottom:5px;letter-spacing:.02em}
+  input,select,textarea{
+    width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--ink);
+    border-radius:9px;padding:10px 11px;font-size:14px;font-family:inherit;outline:none;transition:.15s
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(111,227,214,.15)}
+  textarea{resize:vertical;min-height:120px;line-height:1.5}
+  .row{display:flex;gap:10px}
+  .row > *{flex:1}
+
+  .btn{
+    border:0;border-radius:9px;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;
+    font-family:inherit;transition:.15s;letter-spacing:.01em
+  }
+  .btn-primary{background:var(--amber);color:#2a1c00}
+  .btn-primary:hover{filter:brightness(1.07)}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink-dim)}
+  .btn-ghost:hover{border-color:var(--ink-dim);color:var(--ink)}
+  .btn-row{display:flex;gap:10px;margin-top:4px}
+  .btn-row .btn{flex:1}
+
+  .hint{font-size:12px;color:var(--ink-faint);margin-top:10px}
+  .parse-msg{font-size:13px;margin-top:10px;min-height:18px}
+  .parse-msg.ok{color:var(--cyan)}
+  .parse-msg.err{color:var(--danger)}
+
+  /* axis toolbar */
+  .axisbar{display:flex;flex-wrap:wrap;gap:18px 28px;align-items:center;margin-bottom:14px}
+  .axisbar .grp{display:flex;align-items:center;gap:10px}
+  .axisbar .grp > span{font-size:12px;color:var(--ink-dim);letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+
+  /* plot */
+  #plotWrap{position:relative;width:100%}
+  #svgHost svg{width:100%;height:auto;display:block;border-radius:10px;
+    background:radial-gradient(700px 500px at 30% 20%,#0c1730 0%,#070d1c 70%)}
+  .axis-line{stroke:var(--ink-dim);stroke-width:1.4}
+  .grid-line{stroke:var(--grid);stroke-width:1}
+  .grid-line.bound{stroke:var(--grid-strong)}
+  .tick-txt{fill:var(--ink-dim);font-size:13px;font-family:"SFMono-Regular",ui-monospace,monospace}
+  .axis-title{fill:var(--ink);font-size:15px;font-weight:700}
+  .class-letter{font-size:17px;font-weight:800;font-family:Georgia,serif}
+  .pt{cursor:pointer;transition:r .12s}
+  .pt-label{fill:#aebbdd;font-size:11px;font-family:inherit;pointer-events:none}
+  .corner-note{fill:var(--ink-faint);font-size:11px;font-style:italic}
+
+  #tooltip{
+    position:absolute;pointer-events:none;z-index:5;min-width:150px;max-width:230px;
+    background:rgba(10,16,32,.96);border:1px solid var(--cyan);border-radius:11px;
+    padding:11px 13px;box-shadow:0 12px 34px rgba(0,0,0,.55);
+    transform:translate(-50%,calc(-100% - 16px));opacity:0;transition:opacity .12s;
+  }
+  #tooltip.show{opacity:1}
+  #tooltip .tt-name{font-weight:800;font-size:14px;margin-bottom:6px;color:#fff}
+  #tooltip .tt-row{display:flex;justify-content:space-between;gap:14px;font-size:13px;margin:3px 0}
+  #tooltip .tt-row .k{color:var(--ink-dim)}
+  #tooltip .tt-row .v{font-family:"SFMono-Regular",ui-monospace,monospace;color:var(--amber);font-weight:600}
+  #tooltip .tt-sub{font-size:11px;color:var(--ink-faint);margin-top:7px;border-top:1px solid var(--line-soft);padding-top:7px}
+
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:14px;font-size:12px;color:var(--ink-dim)}
+  .legend .item{display:inline-flex;align-items:center;gap:6px}
+  .legend .swatch{width:11px;height:11px;border-radius:50%;box-shadow:0 0 6px currentColor}
+  .clickhint{font-size:12.5px;color:var(--ink-faint);margin-top:10px;display:flex;align-items:center;gap:7px}
+  .clickhint b{color:var(--cyan)}
+
+  /* table */
+  .list-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .count{font-size:12px;color:var(--ink-faint)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  thead th{text-align:left;color:var(--ink-faint);font-weight:600;font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;padding:0 8px 8px;border-bottom:1px solid var(--line)}
+  tbody td{padding:9px 8px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+  tbody tr:hover{background:rgba(111,227,214,.05)}
+  tbody tr.sel{background:rgba(255,207,107,.10)}
+  .sp-chip{display:inline-flex;align-items:center;gap:7px;font-family:"SFMono-Regular",ui-monospace,monospace;font-weight:700}
+  .sp-chip .dot{width:10px;height:10px;border-radius:50%;box-shadow:0 0 5px currentColor}
+  .mini{background:transparent;border:1px solid var(--line);color:var(--ink-dim);border-radius:7px;
+    padding:5px 9px;font-size:12px;cursor:pointer;font-family:inherit}
+  .mini:hover{color:var(--ink);border-color:var(--ink-dim)}
+  .mini.del:hover{color:var(--danger);border-color:var(--danger)}
+  .empty{color:var(--ink-faint);text-align:center;padding:26px 10px;font-size:13px}
+  .editing-banner{background:rgba(255,207,107,.12);border:1px solid var(--amber);color:var(--amber);
+    border-radius:9px;padding:8px 11px;font-size:12.5px;margin-bottom:12px;display:none}
+  .editing-banner.show{display:block}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="eyebrow">별의 분류 · 탐구 도구</div>
+  <h1>H-R 도 그리기<small>분광형과 절대 등급으로 별의 일생을 한 장에 담기</small></h1>
+  <p class="lede">별의 <b>분광형</b>과 <b>절대 등급</b>을 입력하면 헤르츠스프룽–러셀 도표에 점으로 찍힙니다.
+  가로축은 표면 온도로, 세로축은 광도로 바꿔 볼 수 있고, 점을 클릭하면 그 별의 물리량이 바로 나타납니다.</p>
+</header>
+
+<div class="layout">
+
+  <!-- ============ 입력 영역 ============ -->
+  <div>
+    <div class="card">
+      <h2><span class="dot"></span>별 입력</h2>
+
+      <div class="seg" id="modeSeg" style="margin-bottom:16px">
+        <button data-mode="single" class="active">하나씩 입력</button>
+        <button data-mode="bulk">여러 개 한 번에</button>
+      </div>
+
+      <div class="editing-banner" id="editBanner"></div>
+
+      <!-- 단일 입력 -->
+      <div id="singlePanel">
+        <label class="field">
+          <span>별 이름 <em style="color:var(--ink-faint);font-style:normal">(선택)</em></span>
+          <input id="inName" type="text" placeholder="예: 태양, 시리우스 …" autocomplete="off">
+        </label>
+        <div class="row">
+          <label class="field">
+            <span>분광형 (분류)</span>
+            <select id="inClass">
+              <option value="O">O</option><option value="B">B</option>
+              <option value="A">A</option><option value="F">F</option>
+              <option value="G" selected>G</option><option value="K">K</option>
+              <option value="M">M</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>세부 (0–9)</span>
+            <select id="inSub"></select>
+          </label>
+        </div>
+        <label class="field">
+          <span>절대 등급 (M)</span>
+          <input id="inMag" type="number" step="0.01" placeholder="예: 4.83 (밝을수록 작은 값)" autocomplete="off">
+        </label>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="addBtn">그래프에 추가</button>
+          <button class="btn btn-ghost" id="cancelEditBtn" style="display:none;flex:0 0 auto">취소</button>
+        </div>
+        <p class="hint">분광형이 뜨거운 순서: O · B · A · F · G · K · M (왼쪽일수록 고온)</p>
+      </div>
+
+      <!-- 일괄 입력 -->
+      <div id="bulkPanel" style="display:none">
+        <label class="field">
+          <span>한 줄에 별 하나씩 — <b>이름, 분광형, 절대등급</b></span>
+          <textarea id="bulkText" spellcheck="false" placeholder="태양, G2, 4.83
+시리우스, A1, 1.43
+베텔게우스, M2, -5.85
+
+이름을 빼고 입력해도 됩니다:
+G2, 4.83"></textarea>
+        </label>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="bulkBtn">한꺼번에 추가</button>
+        </div>
+        <div class="parse-msg" id="parseMsg"></div>
+        <p class="hint">쉼표(,)로 구분하세요. 분광형은 G2, K5, M1.5 처럼 적을 수 있습니다.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="list-head">
+        <h2 style="margin:0"><span class="dot"></span>입력한 별 목록</h2>
+        <span class="count" id="countTxt">0개</span>
+      </div>
+      <div id="tableWrap"></div>
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn btn-ghost" id="exampleBtn">예시 별 불러오기</button>
+        <button class="btn btn-ghost" id="clearBtn">전체 지우기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 그래프 영역 ============ -->
+  <div class="card">
+    <div class="axisbar">
+      <div class="grp">
+        <span>가로축</span>
+        <div class="seg" id="xSeg">
+          <button data-x="spectral" class="active">분광형</button>
+          <button data-x="temp">표면 온도</button>
+        </div>
+      </div>
+      <div class="grp">
+        <span>세로축</span>
+        <div class="seg" id="ySeg">
+          <button data-y="mag" class="active">절대 등급</button>
+          <button data-y="lum">광도</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="plotWrap">
+      <div id="svgHost"></div>
+      <div id="tooltip"></div>
+    </div>
+
+    <div class="clickhint">▸ <span>별을 <b>클릭</b>하면 현재 축 기준 물리량(분광형/온도 · 등급/광도)이 나타납니다.</span></div>
+
+    <div class="legend" id="legend"></div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+/* ====================== 상수 & 변환 ====================== */
+const MSUN = 4.83;                       // 태양의 절대등급 (가시광)
+const CLASS_ORDER = {O:0,B:1,A:2,F:3,G:4,K:5,M:6};
+const CLASSES = ["O","B","A","F","G","K","M"];
+const CLASS_COLORS = {O:"#9bb0ff",B:"#aabfff",A:"#cdd8ff",F:"#f4f1ff",G:"#ffe27a",K:"#ffb24d",M:"#ff6b4d"};
+
+// 분광 지수 = 분류*10 + 세부 (O0=0 … M9=69)
+function specIndex(cls, sub){ return CLASS_ORDER[cls]*10 + Number(sub); }
+
+// 분광 지수 → 표면 온도(K). 기준점 사이를 로그보간
+const TEMP_ANCHORS = [
+  [0,50000],[5,42000],[10,30000],[15,15200],[20,9790],[25,8180],
+  [30,7300],[35,6650],[40,5940],[45,5560],[50,5150],[55,4410],
+  [60,3840],[65,3170],[69,2400]
+];
+function indexToTemp(i){
+  i = Math.max(0, Math.min(69, i));
+  let a = TEMP_ANCHORS[0], b = TEMP_ANCHORS[TEMP_ANCHORS.length-1];
+  for(let k=0;k<TEMP_ANCHORS.length-1;k++){
+    if(i>=TEMP_ANCHORS[k][0] && i<=TEMP_ANCHORS[k+1][0]){ a=TEMP_ANCHORS[k]; b=TEMP_ANCHORS[k+1]; break; }
+  }
+  const f = (i-a[0])/(b[0]-a[0] || 1);
+  const logT = Math.log10(a[1]) + f*(Math.log10(b[1])-Math.log10(a[1]));
+  return Math.pow(10, logT);
+}
+// 절대등급 → 광도(태양=1)
+function magToLum(M){ return Math.pow(10, (MSUN - M)/2.5); }
+
+/* ====================== 표시 형식 ====================== */
+const SUP = {"-":"⁻","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹"};
+function sup(n){ return String(n).split("").map(c=>SUP[c]||c).join(""); }
+function fmtMag(M){ return (M>=0?"+":"") + M.toFixed(2); }
+function fmtTemp(t){ return (Math.round(t/10)*10).toLocaleString("ko") + " K"; }
+function fmtSpec(cls,sub){ return cls + (Number.isInteger(Number(sub)) ? sub : Number(sub).toFixed(1)); }
+function fmtLum(L){
+  if(!isFinite(L)) return "—";
+  if(L>=1e4 || (L>0 && L<1e-2)){
+    let e=Math.floor(Math.log10(L)); let m=L/Math.pow(10,e);
+    let mr=Math.round(m*10)/10; if(mr>=10){mr/=10;e++;}
+    const mant = Number.isInteger(mr)?String(mr):mr.toFixed(1);
+    return (mant==="1"?"":mant+" × ")+"10"+sup(e)+" L⊙";
+  }
+  let s;
+  if(L>=100) s=Math.round(L).toLocaleString("ko");
+  else if(L>=10) s=L.toFixed(0);
+  else if(L>=1) s=L.toFixed(1);
+  else s=L.toFixed(2);
+  return s+" L⊙";
+}
+
+/* ====================== 상태 ====================== */
+let stars=[]; let nextId=1;
+let xMode="spectral", yMode="mag";
+let editingId=null, selectedId=null;
+
+/* ====================== 좌표계 ====================== */
+const VW=820, VH=600, mL=72, mR=28, mT=30, mB=70;
+const pL=mL, pR=VW-mR, pT=mT, pB=VH-mB, pW=pR-pL, pH=pB-pT;
+const DX0=-2, DX1=72;        // 분광 지수 도메인
+const MAG_TOP=-12, MAG_BOT=18;  // 절대등급 도메인(위=밝음)
+const xToPx = i => pL + (i-DX0)/(DX1-DX0)*pW;
+const yToPx = M => pT + (M-MAG_TOP)/(MAG_BOT-MAG_TOP)*pH;
+
+/* ====================== 그래프 그리기 ====================== */
+function renderPlot(){
+  let s = `<svg viewBox="0 0 ${VW} ${VH}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="H-R 도표">`;
+
+  // --- 세로 격자 (분광 분류 경계) ---
+  for(let c=0;c<=7;c++){
+    const x = xToPx(c*10);
+    s += `<line class="grid-line bound" x1="${x}" y1="${pT}" x2="${x}" y2="${pB}"/>`;
+  }
+  // --- 가로 격자 + 눈금 라벨 (축 모드에 따라) ---
+  let yticks=[];
+  if(yMode==="mag"){
+    for(let m=-10;m<=15;m+=5) yticks.push({M:m, label:(m>=0?"+":"")+m});
+  }else{
+    for(const k of [6,4,2,0,-2,-4]){ const M=MSUN-2.5*k; yticks.push({M, label:k===0?"1":"10"+sup(k)}); }
+  }
+  yticks.forEach(t=>{
+    const y=yToPx(t.M);
+    s+=`<line class="grid-line" x1="${pL}" y1="${y}" x2="${pR}" y2="${y}"/>`;
+    s+=`<text class="tick-txt" x="${pL-10}" y="${y+4}" text-anchor="end">${t.label}</text>`;
+  });
+
+  // --- 축 선 ---
+  s+=`<line class="axis-line" x1="${pL}" y1="${pT}" x2="${pL}" y2="${pB}"/>`;
+  s+=`<line class="axis-line" x1="${pL}" y1="${pB}" x2="${pR}" y2="${pB}"/>`;
+
+  // --- 가로축 라벨: 분류 중앙(지수 5,15,…65) ---
+  CLASSES.forEach((cls,k)=>{
+    const cx=xToPx(k*10+5);
+    if(xMode==="spectral"){
+      s+=`<text class="class-letter" x="${cx}" y="${pB+26}" text-anchor="middle" fill="${CLASS_COLORS[cls]}">${cls}</text>`;
+    }else{
+      s+=`<text class="tick-txt" x="${cx}" y="${pB+24}" text-anchor="middle">${(Math.round(indexToTemp(k*10+5)/100)*100).toLocaleString("ko")}</text>`;
+    }
+  });
+
+  // --- 축 제목 ---
+  const xTitle = xMode==="spectral" ? "분광형 (Spectral type) — 왼쪽일수록 고온" : "표면 온도 (K) — 왼쪽일수록 고온";
+  const yTitle = yMode==="mag" ? "절대 등급 M — 위쪽일수록 밝음" : "광도 L (태양=1) — 위쪽일수록 밝음";
+  s+=`<text class="axis-title" x="${pL+pW/2}" y="${VH-12}" text-anchor="middle">${xTitle}</text>`;
+  s+=`<text class="axis-title" x="${-(pT+pH/2)}" y="18" text-anchor="middle" transform="rotate(-90)">${yTitle}</text>`;
+
+  // --- 별 점 (뒤: 광채 → 점 → 이름) ---
+  let halos="", dots="", labels="", selRing="";
+  stars.forEach(st=>{
+    const i=specIndex(st.cls,st.sub);
+    const x=xToPx(i), y=yToPx(st.mag);
+    const col=CLASS_COLORS[st.cls];
+    halos += `<circle cx="${x}" cy="${y}" r="13" fill="${col}" opacity="0.16"/>`;
+    dots  += `<circle class="pt" data-id="${st.id}" cx="${x}" cy="${y}" r="7" fill="${col}" stroke="rgba(0,0,0,.4)" stroke-width="1"/>`;
+    const lbl = st.name || fmtSpec(st.cls,st.sub);
+    labels += `<text class="pt-label" x="${x+11}" y="${y+4}">${escapeHtml(lbl)}</text>`;
+    if(st.id===selectedId){
+      selRing += `<circle cx="${x}" cy="${y}" r="12" fill="none" stroke="#fff" stroke-width="2"/>`;
+      selRing += `<circle cx="${x}" cy="${y}" r="17" fill="none" stroke="${col}" stroke-width="1.4" opacity=".7"/>`;
+    }
+  });
+  s += halos + dots + selRing + labels;
+
+  if(stars.length===0){
+    s+=`<text class="corner-note" x="${pL+pW/2}" y="${pT+pH/2}" text-anchor="middle" style="font-size:14px">왼쪽에서 별을 입력하면 여기에 표시됩니다</text>`;
+  }
+  s+=`</svg>`;
+  document.getElementById("svgHost").innerHTML=s;
+}
+
+/* ====================== 클릭 → 물리량 표시 ====================== */
+function setupPlotClicks(){
+  const host=document.getElementById("svgHost");
+  const tip=document.getElementById("tooltip");
+  host.addEventListener("click",e=>{
+    const c=e.target.closest("circle.pt");
+    if(!c){ hideTip(); selectedId=null; renderPlot(); renderTable(); return; }
+    const id=Number(c.dataset.id);
+    const st=stars.find(s=>s.id===id);
+    if(!st) return;
+    selectedId=id; renderPlot(); renderTable();
+    showTip(st,e);
+  });
+}
+function showTip(st,e){
+  const tip=document.getElementById("tooltip");
+  const wrap=document.getElementById("plotWrap").getBoundingClientRect();
+  const i=specIndex(st.cls,st.sub);
+  const xVal = xMode==="spectral" ? ["분광형",fmtSpec(st.cls,st.sub)] : ["표면 온도",fmtTemp(indexToTemp(i))];
+  const yVal = yMode==="mag" ? ["절대 등급",fmtMag(st.mag)] : ["광도",fmtLum(magToLum(st.mag))];
+  const altX = xMode==="spectral" ? "온도 "+fmtTemp(indexToTemp(i)) : "분광형 "+fmtSpec(st.cls,st.sub);
+  const altY = yMode==="mag" ? "광도 "+fmtLum(magToLum(st.mag)) : "절대등급 "+fmtMag(st.mag);
+  tip.innerHTML =
+    (st.name?`<div class="tt-name">${escapeHtml(st.name)}</div>`:"")+
+    `<div class="tt-row"><span class="k">${xVal[0]}</span><span class="v">${xVal[1]}</span></div>`+
+    `<div class="tt-row"><span class="k">${yVal[0]}</span><span class="v">${yVal[1]}</span></div>`+
+    `<div class="tt-sub">${altX} · ${altY}</div>`;
+  let left=e.clientX-wrap.left, top=e.clientY-wrap.top;
+  left=Math.max(90,Math.min(wrap.width-90,left));
+  tip.style.left=left+"px"; tip.style.top=Math.max(70,top)+"px";
+  tip.classList.add("show");
+}
+function hideTip(){ document.getElementById("tooltip").classList.remove("show"); }
+
+/* ====================== 목록 표 ====================== */
+function renderTable(){
+  const wrap=document.getElementById("tableWrap");
+  document.getElementById("countTxt").textContent = stars.length+"개";
+  if(stars.length===0){ wrap.innerHTML=`<div class="empty">아직 입력한 별이 없어요.</div>`; return; }
+  let rows="";
+  stars.forEach(st=>{
+    const col=CLASS_COLORS[st.cls];
+    rows+=`<tr class="${st.id===selectedId?'sel':''}">
+      <td>${st.name?escapeHtml(st.name):'<span style="color:var(--ink-faint)">—</span>'}</td>
+      <td><span class="sp-chip" style="color:${col}"><span class="dot" style="background:${col}"></span>${fmtSpec(st.cls,st.sub)}</span></td>
+      <td class="mono">${fmtMag(st.mag)}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="mini" data-edit="${st.id}">수정</button>
+        <button class="mini del" data-del="${st.id}">삭제</button>
+      </td></tr>`;
+  });
+  wrap.innerHTML=`<table><thead><tr><th>이름</th><th>분광형</th><th>절대등급</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  wrap.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delStar(Number(b.dataset.del)));
+  wrap.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>startEdit(Number(b.dataset.edit)));
+}
+
+/* ====================== 입력 동작 ====================== */
+function addOrUpdate(){
+  const name=document.getElementById("inName").value.trim();
+  const cls=document.getElementById("inClass").value;
+  const sub=Number(document.getElementById("inSub").value);
+  const magRaw=document.getElementById("inMag").value;
+  if(magRaw==="" || isNaN(Number(magRaw))){
+    flashInput("inMag"); return;
+  }
+  const mag=Number(magRaw);
+  if(editingId){
+    const st=stars.find(s=>s.id===editingId);
+    Object.assign(st,{name,cls,sub,mag});
+    stopEdit();
+  }else{
+    stars.push({id:nextId++,name,cls,sub,mag});
+  }
+  clearSingleForm();
+  renderPlot(); renderTable();
+}
+function clearSingleForm(){
+  document.getElementById("inName").value="";
+  document.getElementById("inMag").value="";
+  document.getElementById("inClass").value="G";
+  document.getElementById("inSub").value="2";
+}
+function startEdit(id){
+  const st=stars.find(s=>s.id===id); if(!st)return;
+  setMode("single");
+  editingId=id;
+  document.getElementById("inName").value=st.name||"";
+  document.getElementById("inClass").value=st.cls;
+  document.getElementById("inSub").value=String(Math.round(st.sub));
+  document.getElementById("inMag").value=st.mag;
+  document.getElementById("addBtn").textContent="수정 저장";
+  document.getElementById("cancelEditBtn").style.display="";
+  const b=document.getElementById("editBanner");
+  b.textContent=`"${st.name||fmtSpec(st.cls,st.sub)}" 수정 중 — 값을 바꾼 뒤 저장하세요.`;
+  b.classList.add("show");
+  selectedId=id; renderPlot(); renderTable();
+  document.getElementById("inMag").focus();
+}
+function stopEdit(){
+  editingId=null;
+  document.getElementById("addBtn").textContent="그래프에 추가";
+  document.getElementById("cancelEditBtn").style.display="none";
+  document.getElementById("editBanner").classList.remove("show");
+}
+function delStar(id){
+  stars=stars.filter(s=>s.id!==id);
+  if(selectedId===id){selectedId=null;hideTip();}
+  if(editingId===id) stopEdit();
+  renderPlot(); renderTable();
+}
+function flashInput(id){
+  const el=document.getElementById(id);
+  el.style.borderColor="var(--danger)";
+  el.placeholder="숫자로 절대 등급을 입력하세요";
+  setTimeout(()=>el.style.borderColor="",1200);
+}
+
+/* ---- 일괄 입력 ---- */
+function parseSpec(tok){
+  tok=tok.trim().toUpperCase();
+  const m=tok.match(/^([OBAFGKM])\s*([0-9](?:\.[0-9])?)?$/);
+  if(!m) return null;
+  return {cls:m[1], sub:m[2]!==undefined?parseFloat(m[2]):0};
+}
+function runBulk(){
+  const lines=document.getElementById("bulkText").value.split("\n");
+  let added=0; const errLines=[];
+  lines.forEach((raw,idx)=>{
+    const line=raw.trim();
+    if(!line || line.startsWith("//") || line.startsWith("#")) return;
+    let parts=line.split(",").map(p=>p.trim()).filter(Boolean);
+    if(parts.length<2) parts=line.split(/\s+/);
+    let name="",specTok,magTok;
+    if(parts.length>=3){ name=parts[0]; specTok=parts[1]; magTok=parts[2]; }
+    else if(parts.length===2){ specTok=parts[0]; magTok=parts[1]; }
+    else { errLines.push(idx+1); return; }
+    const sp=parseSpec(specTok); const mag=parseFloat(magTok);
+    if(!sp || isNaN(mag)){ errLines.push(idx+1); return; }
+    stars.push({id:nextId++,name,cls:sp.cls,sub:sp.sub,mag}); added++;
+  });
+  const msg=document.getElementById("parseMsg");
+  if(added>0){
+    msg.className="parse-msg ok";
+    msg.textContent=`${added}개를 추가했어요`+(errLines.length?` · ${errLines.length}줄은 형식 오류(${errLines.join(", ")}번째 줄)`:"");
+    renderPlot(); renderTable();
+  }else{
+    msg.className="parse-msg err";
+    msg.textContent= errLines.length? `추가하지 못했어요 — ${errLines.join(", ")}번째 줄 형식을 확인하세요.` : "입력된 내용이 없어요.";
+  }
+}
+
+/* ---- 예시 / 전체삭제 ---- */
+const EXAMPLE=[
+  ["태양","G",2,4.83],["시리우스","A",1,1.43],["베가","A",0,0.58],
+  ["프로키온","F",5,2.66],["알타이르","A",7,2.22],["폴룩스","K",0,1.08],
+  ["아르크투루스","K",2,-0.30],["알데바란","K",5,-0.64],
+  ["스피카","B",1,-3.55],["리겔","B",8,-7.0],
+  ["베텔게우스","M",2,-5.85],["안타레스","M",1,-5.28],
+  ["바너드별","M",4,13.2],["프록시마","M",5,15.5]
+];
+function loadExample(){
+  const existing=new Set(stars.map(s=>s.name));
+  EXAMPLE.forEach(([name,cls,sub,mag])=>{
+    if(existing.has(name)) return;          // 이미 있는 예시별은 건너뜀(중복 방지)
+    stars.push({id:nextId++,name,cls,sub,mag});
+  });
+  renderPlot(); renderTable();
+}
+let clearArmed=false, clearTimer=null;
+function clearAll(){
+  if(stars.length===0) return;
+  const btn=document.getElementById("clearBtn");
+  if(!clearArmed){                          // 1차: 경고 / 2차: 실제 삭제 (확인창 불필요)
+    clearArmed=true;
+    btn.textContent="한 번 더 누르면 삭제";
+    btn.style.borderColor="var(--danger)";
+    btn.style.color="var(--danger)";
+    clearTimer=setTimeout(resetClearBtn,2500);
+    return;
+  }
+  resetClearBtn();
+  stars=[]; selectedId=null; stopEdit(); hideTip(); renderPlot(); renderTable();
+}
+function resetClearBtn(){
+  clearArmed=false; clearTimeout(clearTimer);
+  const btn=document.getElementById("clearBtn");
+  btn.textContent="전체 지우기"; btn.style.borderColor=""; btn.style.color="";
+}
+
+/* ====================== 모드/축 토글 ====================== */
+function setMode(mode){
+  document.querySelectorAll("#modeSeg button").forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));
+  document.getElementById("singlePanel").style.display = mode==="single"?"":"none";
+  document.getElementById("bulkPanel").style.display   = mode==="bulk"?"":"none";
+}
+
+/* ====================== 보조 ====================== */
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function renderLegend(){
+  const names={O:"O 청색",B:"B",A:"A 백색",F:"F",G:"G 황색",K:"K 주황",M:"M 적색"};
+  document.getElementById("legend").innerHTML =
+    `<span style="color:var(--ink-faint)">색 = 분광형:</span>` +
+    CLASSES.map(c=>`<span class="item" style="color:${CLASS_COLORS[c]}"><span class="swatch" style="background:${CLASS_COLORS[c]}"></span>${names[c]}</span>`).join("");
+}
+
+/* ====================== 초기화 ====================== */
+function init(){
+  // 세부 0–9 채우기
+  const sel=document.getElementById("inSub");
+  for(let i=0;i<=9;i++){ const o=document.createElement("option"); o.value=i; o.textContent=i; if(i===2)o.selected=true; sel.appendChild(o); }
+
+  document.getElementById("addBtn").onclick=addOrUpdate;
+  document.getElementById("cancelEditBtn").onclick=()=>{stopEdit();clearSingleForm();renderPlot();renderTable();};
+  document.getElementById("bulkBtn").onclick=runBulk;
+  document.getElementById("exampleBtn").onclick=loadExample;
+  document.getElementById("clearBtn").onclick=clearAll;
+  document.getElementById("inMag").addEventListener("keydown",e=>{if(e.key==="Enter")addOrUpdate();});
+
+  document.querySelectorAll("#modeSeg button").forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+  document.querySelectorAll("#xSeg button").forEach(b=>b.onclick=()=>{
+    xMode=b.dataset.x; document.querySelectorAll("#xSeg button").forEach(x=>x.classList.toggle("active",x===b));
+    hideTip(); renderPlot();
+  });
+  document.querySelectorAll("#ySeg button").forEach(b=>b.onclick=()=>{
+    yMode=b.dataset.y; document.querySelectorAll("#ySeg button").forEach(y=>y.classList.toggle("active",y===b));
+    hideTip(); renderPlot();
+  });
+
+  setupPlotClicks();
+  renderLegend(); renderPlot(); renderTable();
+}
+init();
+</script>
+</body>
+</html>
