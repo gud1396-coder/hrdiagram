@@ -116,6 +116,7 @@
   .axis-line{stroke:var(--ink-dim);stroke-width:1.4}
   .grid-line{stroke:var(--grid);stroke-width:1}
   .grid-line.bound{stroke:var(--grid-strong)}
+  .grid-line.minor{stroke:#16223e;stroke-width:.7}
   .tick-txt{fill:var(--ink-dim);font-size:13px;font-family:"SFMono-Regular",ui-monospace,monospace}
   .axis-title{fill:var(--ink);font-size:15px;font-weight:700}
   .class-letter{font-size:17px;font-weight:800;font-family:Georgia,serif}
@@ -269,6 +270,10 @@ G2, 4.83"></textarea>
         </div>
       </div>
       <div class="grp refgrp">
+        <span>격자</span>
+        <label class="chip"><input type="checkbox" id="fineToggle" checked> 세부 격자</label>
+      </div>
+      <div class="grp refgrp">
         <span>참고선</span>
         <label class="chip"><input type="checkbox" id="msToggle"> 주계열 곡선</label>
         <label class="chip"><input type="checkbox" id="regToggle"> 별 무리 영역</label>
@@ -348,11 +353,12 @@ let stars=[]; let nextId=1;
 let xMode="spectral", yMode="mag";
 let editingId=null, selectedId=null;
 let showMS=false, showRegions=false;
+let fineGrid=true;
 
 /* ====================== 좌표계 ====================== */
 const VW=820, VH=600, mL=72, mR=28, mT=30, mB=70;
 const pL=mL, pR=VW-mR, pT=mT, pB=VH-mB, pW=pR-pL, pH=pB-pT;
-const DX0=-2, DX1=72;        // 분광 지수 도메인
+const DX0=0, DX1=70;        // 분광 지수 도메인 (왼쪽 끝 = O0, 여백 없음)
 const MAG_TOP=-12, MAG_BOT=18;  // 절대등급 도메인(위=밝음)
 const xToPx = i => pL + (i-DX0)/(DX1-DX0)*pW;
 const yToPx = M => pT + (M-MAG_TOP)/(MAG_BOT-MAG_TOP)*pH;
@@ -361,13 +367,23 @@ const yToPx = M => pT + (M-MAG_TOP)/(MAG_BOT-MAG_TOP)*pH;
 function renderPlot(){
   let s = `<svg viewBox="0 0 ${VW} ${VH}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="H-R 도표">`;
 
-  // --- 세로 격자 (분광 분류 경계) ---
-  for(let c=0;c<=7;c++){
+  // --- 세로 격자 ---
+  if(fineGrid){                                  // 분광 세부(0~9) 보조선
+    for(let i=1;i<70;i++){ if(i%10!==0){ const x=xToPx(i); s+=`<line class="grid-line minor" x1="${x}" y1="${pT}" x2="${x}" y2="${pB}"/>`; } }
+  }
+  for(let c=0;c<=7;c++){                          // 분광 분류 경계(굵은 선)
     const x = xToPx(c*10);
     s += `<line class="grid-line bound" x1="${x}" y1="${pT}" x2="${x}" y2="${pB}"/>`;
   }
-  // --- 가로 격자 + 눈금 라벨 (축 모드에 따라) ---
-  let yticks=[];
+  // --- 가로 격자 ---
+  if(fineGrid){                                   // 세부 보조선
+    if(yMode==="mag"){                            // 절대등급 1단위
+      for(let m=-11;m<=17;m++){ if(m%5!==0){ const y=yToPx(m); s+=`<line class="grid-line minor" x1="${pL}" y1="${y}" x2="${pR}" y2="${y}"/>`; } }
+    }else{                                        // 광도 1자릿수(10배)마다
+      for(const k of [5,3,1,-1,-3]){ const y=yToPx(MSUN-2.5*k); s+=`<line class="grid-line minor" x1="${pL}" y1="${y}" x2="${pR}" y2="${y}"/>`; }
+    }
+  }
+  let yticks=[];                                  // 라벨이 붙는 주격자
   if(yMode==="mag"){
     for(let m=-10;m<=15;m+=5) yticks.push({M:m, label:(m>=0?"+":"")+m});
   }else{
@@ -678,6 +694,7 @@ function init(){
     yMode=b.dataset.y; document.querySelectorAll("#ySeg button").forEach(y=>y.classList.toggle("active",y===b));
     hideTip(); renderPlot();
   });
+  document.getElementById("fineToggle").onchange=e=>{ fineGrid=e.target.checked; renderPlot(); };
   document.getElementById("msToggle").onchange=e=>{ showMS=e.target.checked; renderPlot(); };
   document.getElementById("regToggle").onchange=e=>{ showRegions=e.target.checked; renderPlot(); };
 
