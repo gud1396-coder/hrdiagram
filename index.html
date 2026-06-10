@@ -104,6 +104,10 @@
   .axisbar{display:flex;flex-wrap:wrap;gap:18px 28px;align-items:center;margin-bottom:14px}
   .axisbar .grp{display:flex;align-items:center;gap:10px}
   .axisbar .grp > span{font-size:12px;color:var(--ink-dim);letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+  .refgrp .chip{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-dim);
+    background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 11px;cursor:pointer;user-select:none}
+  .refgrp .chip:hover{color:var(--ink)}
+  .refgrp .chip input{width:auto;margin:0;accent-color:var(--cyan);cursor:pointer}
 
   /* plot */
   #plotWrap{position:relative;width:100%}
@@ -118,6 +122,7 @@
   .pt{cursor:pointer;transition:r .12s}
   .pt-label{fill:#aebbdd;font-size:11px;font-family:inherit;pointer-events:none}
   .corner-note{fill:var(--ink-faint);font-size:11px;font-style:italic}
+  .region-lbl{font-size:13px;font-weight:700;font-family:inherit}
 
   #tooltip{
     position:absolute;pointer-events:none;z-index:5;min-width:150px;max-width:230px;
@@ -263,6 +268,11 @@ G2, 4.83"></textarea>
           <button data-y="lum">광도</button>
         </div>
       </div>
+      <div class="grp refgrp">
+        <span>참고선</span>
+        <label class="chip"><input type="checkbox" id="msToggle"> 주계열 곡선</label>
+        <label class="chip"><input type="checkbox" id="regToggle"> 별 무리 영역</label>
+      </div>
     </div>
 
     <div id="plotWrap">
@@ -307,6 +317,10 @@ function indexToTemp(i){
 // 절대등급 → 광도(태양=1)
 function magToLum(M){ return Math.pow(10, (MSUN - M)/2.5); }
 
+// 표준 주계열(광도계급 V)의 분광지수 → 절대등급 M_V (교과서 평균값)
+const MS_PTS=[[5,-5.7],[10,-4.1],[15,-1.1],[20,0.7],[25,2.0],[30,2.6],[35,3.4],
+  [40,4.4],[45,5.1],[50,5.9],[55,7.3],[60,8.8],[65,12.3],[68,16]];
+
 /* ====================== 표시 형식 ====================== */
 const SUP = {"-":"⁻","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹"};
 function sup(n){ return String(n).split("").map(c=>SUP[c]||c).join(""); }
@@ -333,6 +347,7 @@ function fmtLum(L){
 let stars=[]; let nextId=1;
 let xMode="spectral", yMode="mag";
 let editingId=null, selectedId=null;
+let showMS=false, showRegions=false;
 
 /* ====================== 좌표계 ====================== */
 const VW=820, VH=600, mL=72, mR=28, mT=30, mB=70;
@@ -383,6 +398,34 @@ function renderPlot(){
   const yTitle = yMode==="mag" ? "절대 등급 M — 위쪽일수록 밝음" : "광도 L (태양=1) — 위쪽일수록 밝음";
   s+=`<text class="axis-title" x="${pL+pW/2}" y="${VH-12}" text-anchor="middle">${xTitle}</text>`;
   s+=`<text class="axis-title" x="${-(pT+pH/2)}" y="18" text-anchor="middle" transform="rotate(-90)">${yTitle}</text>`;
+
+  // --- 참고선: 별 무리 영역 (초거성/거성/백색왜성) ---
+  if(showRegions){
+    const ell=(i0,i1,m0,m1)=>{ // 분광지수·등급 범위로 타원 좌표 계산
+      const x0=xToPx(i0),x1=xToPx(i1),y0=yToPx(m0),y1=yToPx(m1);
+      return {cx:(x0+x1)/2, cy:(y0+y1)/2, rx:Math.abs(x1-x0)/2, ry:Math.abs(y1-y0)/2};
+    };
+    // 초거성: 위쪽 가로 띠
+    const sx=xToPx(2), sw=xToPx(69)-xToPx(2), sy=yToPx(-8), sh=yToPx(-4)-yToPx(-8);
+    s+=`<rect x="${sx}" y="${sy}" width="${sw}" height="${sh}" rx="14" fill="#ffcf6b" fill-opacity="0.08" stroke="#ffcf6b" stroke-opacity="0.3" stroke-dasharray="5 5"/>`;
+    s+=`<text class="region-lbl" x="${sx+12}" y="${sy+sh/2+4}" fill="#ffcf6b">초거성 (I)</text>`;
+    // 거성: K~M 위쪽 영역
+    const g=ell(46,69,-1.5,2.5);
+    s+=`<ellipse cx="${g.cx}" cy="${g.cy}" rx="${g.rx}" ry="${g.ry}" fill="#ff9e4d" fill-opacity="0.10" stroke="#ff9e4d" stroke-opacity="0.32" stroke-dasharray="5 5"/>`;
+    s+=`<text class="region-lbl" x="${g.cx}" y="${g.cy-g.ry-6}" text-anchor="middle" fill="#ff9e4d">거성 (III)</text>`;
+    // 백색왜성: 아래쪽 고온 영역
+    const w=ell(16,44,10.5,14.8);
+    s+=`<ellipse cx="${w.cx}" cy="${w.cy}" rx="${w.rx}" ry="${w.ry}" fill="#cdd8ff" fill-opacity="0.11" stroke="#cdd8ff" stroke-opacity="0.34" stroke-dasharray="5 5"/>`;
+    s+=`<text class="region-lbl" x="${w.cx}" y="${w.cy+4}" text-anchor="middle" fill="#dbe4ff">백색왜성</text>`;
+  }
+
+  // --- 참고선: 표준 주계열 곡선(띠) ---
+  if(showMS){
+    const pts=MS_PTS.map(p=>`${xToPx(p[0]).toFixed(1)},${yToPx(p[1]).toFixed(1)}`).join(" ");
+    s+=`<polyline points="${pts}" fill="none" stroke="#6fe3d6" stroke-width="17" stroke-opacity="0.15" stroke-linecap="round" stroke-linejoin="round"/>`;
+    s+=`<polyline points="${pts}" fill="none" stroke="#6fe3d6" stroke-width="2" stroke-opacity="0.65" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5"/>`;
+    s+=`<text class="region-lbl" x="${xToPx(13)}" y="${yToPx(-1.6)}" fill="#9af0e6">주계열 (V)</text>`;
+  }
 
   // --- 별 점 (뒤: 광채 → 점 → 이름) ---
   let halos="", dots="", labels="", selRing="";
@@ -635,6 +678,8 @@ function init(){
     yMode=b.dataset.y; document.querySelectorAll("#ySeg button").forEach(y=>y.classList.toggle("active",y===b));
     hideTip(); renderPlot();
   });
+  document.getElementById("msToggle").onchange=e=>{ showMS=e.target.checked; renderPlot(); };
+  document.getElementById("regToggle").onchange=e=>{ showRegions=e.target.checked; renderPlot(); };
 
   setupPlotClicks();
   renderLegend(); renderPlot(); renderTable();
